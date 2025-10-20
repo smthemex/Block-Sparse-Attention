@@ -12,7 +12,7 @@
 #include <cute/tensor.hpp>
 
 #include <cutlass/numeric_types.h>
-
+#include <cfloat> 
 #include "philox.cuh"
 #include "utils.h"
 
@@ -75,7 +75,7 @@ inline __device__ void scale_apply_exp2(Tensor<Engine0, Layout0> &tensor, Tensor
         // If max is -inf, then all elements must have been -inf (possibly due to masking).
         // We don't want (-inf - (-inf)) since that would give NaN.
         // If we don't have float around M_LOG2E the multiplication is done in fp64.
-        const float max_scaled = max(mi) == -INFINITY ? 0.f : max(mi) * (Scale_max ? scale : float(M_LOG2E));
+        const float max_scaled = max(mi) == -FLT_MAX ? 0.f : max(mi) * (Scale_max ? scale : float(M_LOG2E));
         #pragma unroll
         for (int ni = 0; ni < size<1>(tensor); ++ni)  {
             // Instead of computing exp(x - max), we compute exp2(x * log_2(e) -
@@ -103,7 +103,7 @@ inline __device__ void max_scale_exp2_sum(Tensor<Engine0, Layout0> &tensor, Tens
         max(mi) = Allreduce<4>::run(max(mi), max_op);
         // If max is -inf, then all elements must have been -inf (possibly due to masking).
         // We don't want (-inf - (-inf)) since that would give NaN.
-        const float max_scaled = max(mi) == -INFINITY ? 0.f : max(mi) * scale;
+        const float max_scaled = max(mi) == -FLT_MAX ? 0.f : max(mi) * scale;
         sum(mi) = 0;
         #pragma unroll
         for (int ni = 0; ni < size<1>(tensor); ++ni)  {
@@ -135,7 +135,7 @@ inline __device__ void apply_mask(Tensor<Engine, Layout> &tensor, const int max_
                 // Without the "make_coord" we get wrong results
                 #pragma unroll
                 for (int mi = 0; mi < size<0>(tensor); ++mi) {
-                    tensor(mi, make_coord(j, nj)) = -INFINITY;
+                    tensor(mi, make_coord(j, nj)) = -FLT_MAX;
                 }
             }
         }
@@ -166,7 +166,7 @@ inline __device__ void apply_mask_local(Tensor<Engine, Layout> &tensor, const in
                 for (int j = 0; j < size<1, 0>(tensor); ++j) {
                     const int col_idx = col_idx_base + j;
                     if (col_idx >= col_idx_limit_right || (HasWSLeft && col_idx < col_idx_limit_left)) {
-                        tensor(make_coord(i, mi), make_coord(j, nj)) = -INFINITY;
+                        tensor(make_coord(i, mi), make_coord(j, nj)) = -FLT_MAX;
                     }
                 }
             }
@@ -205,7 +205,7 @@ inline __device__ void apply_mask_streaming(Tensor<Engine, Layout> &tensor, cons
                 for (int j = 0; j < size<1, 0>(tensor); ++j) {
                     const int col_idx = col_idx_base + j;
                     if (col_idx >= col_idx_limit_right || (HasWSLeft && col_idx < col_idx_limit_left && col_idx >= sink_size)) { 
-                        tensor(make_coord(i, mi), make_coord(j, nj)) = -INFINITY;
+                        tensor(make_coord(i, mi), make_coord(j, nj)) = -FLT_MAX;
                     }
                 }
             }
@@ -219,7 +219,7 @@ template <typename Engine, typename Layout>
 inline __device__ void apply_mask_causal(Tensor<Engine, Layout> &tensor, const int col_idx_offset_,
                                          const int max_seqlen_k, const int row_idx_offset,
                                          const int max_seqlen_q, const int warp_row_stride) {
-    // Causal masking is equivalent to local masking with window_size_left = infinity and window_size_right = 0
+    // Causal masking is equivalent to local masking with window_size_left = FLT_MAX and window_size_right = 0
     apply_mask_local</*HasWSLeft=*/false>(tensor, col_idx_offset_, max_seqlen_k, row_idx_offset,
                                           max_seqlen_q, warp_row_stride, -1, 0);
 }
@@ -240,7 +240,7 @@ inline __device__ void apply_mask_causal_w_idx(
         #pragma unroll
         for (int ni = 0; ni < size<1, 1>(tensor); ++ni) {
             if (col_idx_offset_ + get<1>(idx_rowcol(0, ni)) >= col_idx_limit) {
-                tensor(mi, ni) = -INFINITY;
+                tensor(mi, ni) = -FLT_MAX;
             }
         }
         // if (cute::thread0()) {
