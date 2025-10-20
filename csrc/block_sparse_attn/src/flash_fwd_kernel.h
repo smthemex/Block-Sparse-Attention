@@ -19,7 +19,7 @@
 #include "softmax.h"
 
 #include "alibi.h"
-
+#include <cfloat>
 #include "flash_blockmask.h"
 
 namespace flash {
@@ -45,7 +45,7 @@ inline __device__ void softmax_rescale_o(Tensor0 &scores, Tensor1 &scores_max, T
         for (int mi = 0; mi < size(scores_max); ++mi) {
             float scores_max_cur = !Check_inf
                 ? scores_max(mi)
-                : (scores_max(mi) == -INFINITY ? 0.0f : scores_max(mi));
+                : (scores_max(mi) == -FLT_MAX ? 0.0f : scores_max(mi));
             float scores_scale = exp2f((scores_max_prev(mi) - scores_max_cur) * softmax_scale_log2);
             scores_sum(mi) *= scores_scale;
             #pragma unroll
@@ -77,7 +77,7 @@ inline __device__ void softmax_rescale_o_block(Tensor0 &scores, Tensor1 &scores_
         for (int mi = 0; mi < size(scores_max); ++mi) {
             float scores_max_cur = !(Check_inf || Is_blocksparse_skip)
                 ? scores_max(mi)
-                : (scores_max(mi) == -INFINITY ? 0.0f : scores_max(mi));
+                : (scores_max(mi) == -FLT_MAX ? 0.0f : scores_max(mi));
             float scores_scale = exp2f((scores_max_prev(mi) - scores_max_cur) * softmax_scale_log2);
             scores_sum(mi) *= scores_scale;
             #pragma unroll
@@ -127,7 +127,7 @@ inline __device__ void compute_attn_1rowblock(const Params &params, const int bi
     constexpr int kHeadDim = Kernel_traits::kHeadDim;
     constexpr int kNWarps = Kernel_traits::kNWarps;
     constexpr int MMA_M = kBlockM / decltype(size<0>(typename Kernel_traits::TiledMma::TiledShape_MNK{}))::value;
-
+    (void)MMA_M;  // 告诉编译器我们"使用"了这个变量
     const BlockInfo</*Varlen=*/!Is_even_MN> binfo(params, bidb);
     if (m_block * kBlockM >= binfo.actual_seqlen_q) return;
 
@@ -177,7 +177,7 @@ inline __device__ void compute_attn_1rowblock(const Params &params, const int bi
         #pragma unroll
         for (int m = 0; m < size<1>(tOgO); ++m) {
             const int row = get<0>(tOcO(0, m, 0));
-            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSE(row) = INFINITY; }
+            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSE(row) = FLT_MAX; }
         }
         return;
     }
@@ -304,7 +304,7 @@ inline __device__ void compute_attn_1rowblock(const Params &params, const int bi
 
     // Prologue
 
-    Tensor tQrQ = make_fragment_like(tQgQ);
+    //Tensor tQrQ = make_fragment_like(tQgQ);
     // We don't need to clear the sQ smem tiles since we'll only write out the valid outputs
     flash::copy<Is_even_MN, Is_even_K>(gmem_tiled_copy_QKV, tQgQ, tQsQ, tQcQ, tQpQ,
                                        binfo.actual_seqlen_q - m_block * kBlockM);
@@ -571,7 +571,7 @@ inline __device__ void compute_attn_1rowblock(const Params &params, const int bi
     for (int mi = 0; mi < size<0>(acc_o_rowcol); ++mi) {
         float sum = scores_sum(mi);
         float inv_sum = (sum == 0.f || sum != sum) ? 1.f : 1.f / sum;
-        lse(mi) = (sum == 0.f || sum != sum) ? INFINITY : scores_max(mi) * params.scale_softmax + __logf(sum);
+        lse(mi) = (sum == 0.f || sum != sum) ? FLT_MAX : scores_max(mi) * params.scale_softmax + __logf(sum);
         float scale = !Is_dropout ? inv_sum : inv_sum * params.rp_dropout;
         #pragma unroll
         for (int ni = 0; ni < size<1>(acc_o_rowcol); ++ni) { acc_o_rowcol(mi, ni) *= scale; }
@@ -660,7 +660,7 @@ inline __device__ void compute_block_attn_1rowblock(const Params &params, const 
     constexpr int kHeadDim = Kernel_traits::kHeadDim;
     constexpr int kNWarps = Kernel_traits::kNWarps;
     constexpr int MMA_M = kBlockM / decltype(size<0>(typename Kernel_traits::TiledMma::TiledShape_MNK{}))::value;
-
+    (void)MMA_M;  // 告诉编译器我们"使用"了这个变量
     const BlockInfo</*Varlen=*/!Is_even_MN> binfo(params, bidb);
     if (m_block * kBlockM >= binfo.actual_seqlen_q) return;
 
@@ -740,7 +740,7 @@ inline __device__ void compute_block_attn_1rowblock(const Params &params, const 
         #pragma unroll
         for (int m = 0; m < size<1>(tOgO); ++m) {
             const int row = get<0>(tOcO(0, m, 0));
-            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSE(row) = INFINITY; }
+            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSE(row) = FLT_MAX; }
         }
         return;
     }
@@ -843,7 +843,7 @@ inline __device__ void compute_block_attn_1rowblock(const Params &params, const 
         #pragma unroll
         for (int k = 0; k < size(tKVpKV); ++k) { tKVpKV(k) = get<1>(tKVcKV(0, 0, k)) < params.d; }
     }
-    Tensor tQrQ = make_fragment_like(tQgQ);
+    //Tensor tQrQ = make_fragment_like(tQgQ);
     // We don't need to clear the sQ smem tiles since we'll only write out the valid outputs
     flash::copy<Is_even_MN, Is_even_K>(gmem_tiled_copy_QKV, tQgQ, tQsQ, tQcQ, tQpQ,
                                        binfo.actual_seqlen_q - m_block * kBlockM);
@@ -1189,7 +1189,7 @@ inline __device__ void compute_block_attn_1rowblock(const Params &params, const 
     for (int mi = 0; mi < size<0>(acc_o_rowcol); ++mi) {
         float sum = scores_sum(mi);
         float inv_sum = (sum == 0.f || sum != sum) ? 1.f : 1.f / sum;
-        lse(mi) = (sum == 0.f || sum != sum) ? INFINITY : scores_max(mi) * params.scale_softmax + __logf(sum);
+        lse(mi) = (sum == 0.f || sum != sum) ? FLT_MAX : scores_max(mi) * params.scale_softmax + __logf(sum);
         float scale = !Is_dropout ? inv_sum : inv_sum * params.rp_dropout;
         #pragma unroll
         for (int ni = 0; ni < size<1>(acc_o_rowcol); ++ni) { acc_o_rowcol(mi, ni) *= scale; }
@@ -1337,7 +1337,7 @@ inline __device__ void compute_attn_1rowblock_splitkv(const Params &params, cons
         #pragma unroll
         for (int m = 0; m < size<1>(tOgOaccum); ++m) {
             const int row = get<0>(tOcO(0, m, 0));
-            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSEaccum(row) = Split ? -INFINITY : INFINITY; }
+            if (row < binfo.actual_seqlen_q - m_block * kBlockM && get<1>(tOcO(0, m, 0)) == 0) { gLSEaccum(row) = Split ? -FLT_MAX : FLT_MAX; }
         }
         return;
     }
@@ -1533,7 +1533,7 @@ inline __device__ void compute_attn_1rowblock_splitkv(const Params &params, cons
     }
 
     // Read Q from gmem to smem, optionally apply rotary embedding.
-    Tensor tQrQ = make_fragment_like(tQgQ);
+    //Tensor tQrQ = make_fragment_like(tQgQ);
     if (!Append_KV || params.rotary_dim == 0) {
         // We don't need to clear the sQ smem tiles since we'll only write out the valid outputs
         flash::copy<Is_even_MN, Is_even_K>(gmem_tiled_copy_QKV, tQgQ, tQsQ, tQcQ, tQpQ,
@@ -1757,7 +1757,7 @@ inline __device__ void compute_attn_1rowblock_splitkv(const Params &params, cons
     for (int mi = 0; mi < size<0>(acc_o_rowcol); ++mi) {
         float sum = scores_sum(mi);
         float inv_sum = (sum == 0.f || sum != sum) ? 1.f : 1.f / sum;
-        lse(mi) = (sum == 0.f || sum != sum) ? (Split ? -INFINITY : INFINITY) : scores_max(mi) * params.scale_softmax + __logf(sum);
+        lse(mi) = (sum == 0.f || sum != sum) ? (Split ? -FLT_MAX : FLT_MAX) : scores_max(mi) * params.scale_softmax + __logf(sum);
         float scale = inv_sum;
         #pragma unroll
         for (int ni = 0; ni < size<1>(acc_o_rowcol); ++ni) { acc_o_rowcol(mi, ni) *= scale; }
@@ -1938,7 +1938,7 @@ inline __device__ void combine_attn_seqk_parallel(const Params &params) {
     for (int l = 0; l < kNLsePerThread; ++l) {
         const int row = l * kRowsPerLoadLSE + tidx / kBlockM;
         const int col = tidx % kBlockM;
-        ElementAccum lse = (row < params.num_splits && col < params.b * params.h * params.seqlen_q - bidx * kBlockM) ? gLSEaccum(row, col) : -INFINITY;
+        ElementAccum lse = (row < params.num_splits && col < params.b * params.h * params.seqlen_q - bidx * kBlockM) ? gLSEaccum(row, col) : -FLT_MAX;
         if (row < kMaxSplits) { sLSE[row][col] = lse; }
         // if (bidx == 0 && tidx < 32) { printf("tidx = %d, row = %d, col = %d, lse = %f\n", tidx, row, col, lse); }
     }
@@ -1957,7 +1957,7 @@ inline __device__ void combine_attn_seqk_parallel(const Params &params) {
     for (int l = 0; l < kNLsePerThread; ++l) {
         const int row = l * kRowsPerLoadTranspose + tidx % kRowsPerLoadTranspose;
         const int col = tidx / kRowsPerLoadTranspose;
-        lse_accum(l) = (row < kMaxSplits && col < kBlockM) ? sLSE[row][col] : -INFINITY;
+        lse_accum(l) = (row < kMaxSplits && col < kBlockM) ? sLSE[row][col] : -FLT_MAX;
         // if (bidx == 0 && tidx < 32) { printf("tidx = %d, row = %d, col = %d, lse = %f\n", tidx, row, col, lse_accum(l)); }
     }
 
@@ -1967,15 +1967,15 @@ inline __device__ void combine_attn_seqk_parallel(const Params &params) {
     for (int l = 1; l < kNLsePerThread; ++l) { lse_max = max(lse_max, lse_accum(l)); }
     MaxOp<float> max_op;
     lse_max = Allreduce<kRowsPerLoadTranspose>::run(lse_max, max_op);
-    lse_max = lse_max == -INFINITY ? 0.0f : lse_max;  // In case all local LSEs are -inf
+    lse_max = lse_max == -FLT_MAX ? 0.0f : lse_max;  // In case all local LSEs are -inf
     float lse_sum = expf(lse_accum(0) - lse_max);
     #pragma unroll
     for (int l = 1; l < kNLsePerThread; ++l) { lse_sum += expf(lse_accum(l) - lse_max); }
     SumOp<float> sum_op;
     lse_sum = Allreduce<kRowsPerLoadTranspose>::run(lse_sum, sum_op);
-    // For the case where all local lse == -INFINITY, we want to set lse_logsum to INFINITY. Otherwise
-    // lse_logsum is log(0.0) = -INFINITY and we get NaN when we do lse_accum(l) - lse_logsum.
-    ElementAccum lse_logsum = (lse_sum == 0.f || lse_sum != lse_sum) ? INFINITY : logf(lse_sum) + lse_max;
+    // For the case where all local lse == -FLT_MAX, we want to set lse_logsum to FLT_MAX. Otherwise
+    // lse_logsum is log(0.0) = -FLT_MAX and we get NaN when we do lse_accum(l) - lse_logsum.
+    ElementAccum lse_logsum = (lse_sum == 0.f || lse_sum != lse_sum) ? FLT_MAX : logf(lse_sum) + lse_max;
     // if (bidx == 0 && tidx < 32) { printf("tidx = %d, lse = %f, lse_max = %f, lse_logsum = %f\n", tidx, lse_accum(0), lse_max, lse_logsum); }
     if (tidx % kRowsPerLoadTranspose == 0 && tidx / kRowsPerLoadTranspose < kBlockM) { gLSE(tidx / kRowsPerLoadTranspose) = lse_logsum; }
     // Store the scales exp(lse - lse_logsum) in shared memory.
