@@ -17,7 +17,7 @@
 #include "kernel_traits.h"
 #include "utils.h"
 #include "softmax.h"
-
+#include <cfloat> 
 #include "alibi.h"
 
 #include "flash_blockmask.h"
@@ -764,7 +764,7 @@ inline __device__ void compute_dq_dk_dv_1colblock(const Params &params, const in
     #pragma unroll
     for (int mi = 0; mi < size(lse); ++mi) {
         const int row = get<0>(taccScS_row(mi));
-        lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : INFINITY;
+        lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : FLT_MAX;
     }
     // We want LSE = inf if the row is OOB. In that case Q would be zero, K would be zero,
     // and scores would be zero. With LSE = 0, probs will be all 1's, and when we multiply
@@ -1513,7 +1513,7 @@ inline __device__ void compute_block_dq_dk_dv_1colblock(const Params &params, co
         #pragma unroll
         for (int mi = 0; mi < size(lse); ++mi) {
             const int row = get<0>(taccScS_row(mi));
-            lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : INFINITY;
+            lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : FLT_MAX;
         }
     }
 
@@ -2053,7 +2053,7 @@ inline __device__ void compute_dq_dk_dv_1rowblock(const Params &params, const in
         gmem_tiled_copy_dO, tdOgO, tdOrO, tQcQ, tQpQ, binfo.actual_seqlen_q - m_block * kBlockM
     );
 
-    Tensor tQrQ = make_fragment_like(tQgQ);
+    //Tensor tQrQ = make_fragment_like(tQgQ);
     flash::copy</*Is_even_MN=*/false, Is_even_K, /*Clear_OOB_MN=*/true>(
         gmem_tiled_copy_QKV, tQgQ, tQsQ, tQcQ, tQpQ, binfo.actual_seqlen_q - m_block * kBlockM
     );
