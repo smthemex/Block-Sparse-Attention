@@ -13,9 +13,16 @@ We release the implementation of Block Sparse Attention, which is modified base 
 ```
 git clone https://github.com/smthemex/Block-Sparse-Attention.git
 cd /d Block-Sparse-Attention/csrc
-git clone https://github.com/NVIDIA/cutlass.git
+git clone https://github.com/NVIDIA/cutlass.git # 库比较大，不行就直接下载zip解压，只是需要头文件而已
+cd.. # 返回Block-Sparse-Attention目录 
 python setup.py bdist_wheel
 ```
+注意setup。py里几个可调整参数：  
+1、 [线程数](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L88)  遇到OOM就改成1，否则可以试试4   
+2、 [内存](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L208C1-L208C71)  设置编译内存上限   
+3、 是否编译sm90 [link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1)  取消注释   
+
+
 * 当构建完成，在Block-Sparse-Attention的dist目录下，会有轮子文件 例如：block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl,按如下格式安装  
 ```
 pip install X:\X\Block-Sparse-Attention\dist\block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl
