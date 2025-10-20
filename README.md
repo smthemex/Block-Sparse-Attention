@@ -6,6 +6,22 @@ We release the implementation of Block Sparse Attention, which is modified base 
 
 ![Sparse Patterns](assets/BlockSparseMaskDemo.jpeg)
 
+
+## Building  a wheel when use windows/ 编一个轮子，注意环境的配置
+* 修改了部分源文件的setup，避免OOM以及避免更太激进的编译导致出错，如果你是4090/50xx显卡，需要在这里[link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1) 取消sm90的注释以恢复支持，50系的blackwell架构 是否向下兼容sm90有待验证  
+* 在windows环境构建一个Block-Sparse-Attention的轮子
+```
+git clone https://github.com/smthemex/Block-Sparse-Attention.git
+cd /d Block-Sparse-Attention/csrc
+git clone https://github.com/NVIDIA/cutlass.git
+python setup.py bdist_wheel
+```
+* 当构建完成，在Block-Sparse-Attention的dist目录下，会有轮子文件 例如：block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl,按如下格式安装  
+```
+pip install X:\X\Block-Sparse-Attention\dist\block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl
+```
+
+
 ## News
 
 - [2024/10] We release both fwd pass and bwd pass of Block Sparse Attention.
