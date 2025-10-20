@@ -45,7 +45,8 @@ FORCE_BUILD = os.getenv("FLASH_ATTENTION_FORCE_BUILD", "FALSE") == "TRUE"
 SKIP_CUDA_BUILD = os.getenv("FLASH_ATTENTION_SKIP_CUDA_BUILD", "FALSE") == "TRUE"
 # For CI, we want the option to build with C++11 ABI since the nvcr images use C++11 ABI
 FORCE_CXX11_ABI = os.getenv("FLASH_ATTENTION_FORCE_CXX11_ABI", "FALSE") == "TRUE"
-
+SKIP_CUDA_BUILD=False # 强制编译，因为官方轮子很老了
+FORCE_BUILD=True # 强制编译，因为官方轮子很老了
 
 def get_platform():
     """
@@ -84,7 +85,7 @@ def check_if_cuda_home_none(global_option: str) -> None:
 
 
 def append_nvcc_threads(nvcc_extra_args):
-    return nvcc_extra_args + ["--threads", "4"]
+    return nvcc_extra_args + ["--threads", "1"]
 
 
 cmdclass = {}
@@ -120,10 +121,10 @@ if not SKIP_CUDA_BUILD:
     # cc_flag.append("arch=compute_75,code=sm_75")
     cc_flag.append("-gencode")
     cc_flag.append("arch=compute_80,code=sm_80")
-    if CUDA_HOME is not None:
-        if bare_metal_version >= Version("11.8"):
-            cc_flag.append("-gencode")
-            cc_flag.append("arch=compute_90,code=sm_90")
+    # if CUDA_HOME is not None:  # if 50xx need this 如果是50系需要取消注释
+    #     if bare_metal_version >= Version("11.8"):
+    #         cc_flag.append("-gencode")
+    #         cc_flag.append("arch=compute_90,code=sm_90")
 
     # HACK: The compiler flag -D_GLIBCXX_USE_CXX11_ABI is set to be the same as
     # torch._C._GLIBCXX_USE_CXX11_ABI
@@ -199,11 +200,12 @@ if not SKIP_CUDA_BUILD:
                 "csrc/block_sparse_attn/src/flash_bwd_block_hdim128_bf16_sm80.cu",
             ],
             extra_compile_args={
-                "cxx": ["-O3", "-std=c++17"] + generator_flag,
+                "cxx": ["-O2", "-std=c++17"] + generator_flag,
                 "nvcc": append_nvcc_threads(
                     [
-                        "-O3",
+                        "-O2",
                         "-std=c++17",
+                        "--maxrregcount=50", # 限制内存50G 根据你的实际内存来，避免OOM
                         "-U__CUDA_NO_HALF_OPERATORS__",
                         "-U__CUDA_NO_HALF_CONVERSIONS__",
                         "-U__CUDA_NO_HALF2_OPERATORS__",
