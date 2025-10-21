@@ -8,7 +8,7 @@ We release the implementation of Block Sparse Attention, which is modified base 
 
 
 ## Building  a wheel when use windows/ 编一个轮子，注意环境的配置
-* 修改了部分源文件的setup，避免OOM以及避免更太激进的编译导致出错，如果你是4090/50xx显卡，需要在这里[link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1) 取消sm90的注释以恢复支持，50系的blackwell架构 是否向下兼容sm90有待验证  
+* 修改了部分源文件的setup，避免OOM以及避免更太激进的编译导致出错，如果你不是4090/50xx显卡，可以注释掉这里[link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1) 取消sm90的支持，50系的blackwell架构 是否向下兼容sm90有待验证  
 * 在windows环境构建一个Block-Sparse-Attention的轮子
 ```
 git clone https://github.com/smthemex/Block-Sparse-Attention.git
@@ -20,7 +20,7 @@ python setup.py bdist_wheel
 注意setup。py里几个可调整参数：  
 1、 [线程数](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L88)  遇到OOM就改成1，否则可以试试4   
 2、 [内存](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L208C1-L208C71)  设置编译内存上限   
-3、 是否编译sm90 [link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1)  取消注释   
+3、 是否编译sm90 [link](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L124C3-L128C1)  不需要sm90 则注释掉   
 
 
 * 当构建完成，在Block-Sparse-Attention的dist目录下，会有轮子文件 例如：block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl,按如下格式安装  
