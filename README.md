@@ -6,6 +6,26 @@ We release the implementation of Block Sparse Attention, which is initially modi
 
 ![Sparse Patterns](assets/BlockSparseMaskDemo.jpeg)
 
+# For window's buiding 2026-05-20
+在windows环境构建一个Block-Sparse-Attention的轮子 
+
+* 主要修改，还是沿用之前的，替换INFINITY，window环境可能容易内存溢出，解决几个无用声明，同步官方0.0.2代码，注意新版去掉了0.0.1版本的稠密attn部分内容（128shape为flashVSR所用），新增最新显卡的支持；如果系统稳定且内存较大128G，可以开启线程到4或者更高
+```
+git clone https://github.com/smthemex/Block-Sparse-Attention.git
+cd /d Block-Sparse-Attention/csrc
+git clone https://github.com/NVIDIA/cutlass.git # 库比较大，不行就直接下载zip解压，只是需要头文件而已
+cd.. # 返回Block-Sparse-Attention目录 
+python setup.py bdist_wheel
+```
+注意如果太慢，则修改setup.py[这里](https://github.com/smthemex/Block-Sparse-Attention/blob/main/setup.py#L147)的线程数为4或者其他数值，越大越容易OOM：
+
+当构建完成，在Block-Sparse-Attention的dist目录下，会有轮子文件 例如：block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl,按如下格式安装
+```
+pip install X:\X\Block-Sparse-Attention\dist\block_sparse_attn-0.0.1-cp311-cp311-win_amd64.whl
+```
+
+
+
 ## News
 
 - [2025/12] We updated the implementation:
