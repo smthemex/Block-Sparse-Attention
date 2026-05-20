@@ -142,8 +142,9 @@ def check_if_cuda_home_none(global_option: str) -> None:
 
 
 def append_nvcc_threads(nvcc_extra_args):
-    nvcc_threads = os.getenv("NVCC_THREADS") or "4"
-    return nvcc_extra_args + ["--threads", nvcc_threads]
+    #nvcc_threads = os.getenv("NVCC_THREADS") or "4"
+    # 多线程开启时某些cpu容易崩掉，尤其是有bug的 13代i9，暂时默认不开启多线程编译,虽然慢点，如果需要直接改成4或其他数字即可
+    return nvcc_extra_args + ["--threads", "1"]
 
 
 cmdclass = {}
@@ -277,7 +278,7 @@ def get_wheel_url():
     torch_cuda_version = parse(torch.version.cuda)
     # For CUDA 11, we only compile for CUDA 11.8, and for CUDA 12 we only compile for CUDA 12.3
     # to save CI time. Minor versions should be compatible.
-    torch_cuda_version = parse("11.8") if torch_cuda_version.major == 11 else parse("12.3")
+    torch_cuda_version = parse("11.8") if torch_cuda_version.major == 11 else  parse("12.3") if torch_cuda_version.major == 12 else parse("13.0")
     # cuda_version = f"{cuda_version_raw.major}{cuda_version_raw.minor}"
     cuda_version = f"{torch_cuda_version.major}"
 
