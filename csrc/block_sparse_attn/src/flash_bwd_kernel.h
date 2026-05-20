@@ -20,7 +20,7 @@
 #include "softmax.h"
 
 #include "alibi.h"
-
+#include <cfloat> // For INFINITY 2 FLT_MAX
 #include "flash_blockmask.h"
 
 namespace FLASH_NAMESPACE {
@@ -765,7 +765,7 @@ inline __device__ void compute_dq_dk_dv_1colblock(const Params &params, const in
     #pragma unroll
     for (int mi = 0; mi < size(lse); ++mi) {
         const int row = get<0>(taccScS_row(mi));
-        lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : INFINITY;
+        lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : FLT_MAX;
     }
     // We want LSE = inf if the row is OOB. In that case Q would be zero, K would be zero,
     // and scores would be zero. With LSE = 0, probs will be all 1's, and when we multiply
@@ -1513,7 +1513,7 @@ inline __device__ void compute_block_dq_dk_dv_1colblock(const Params &params, co
         #pragma unroll
         for (int mi = 0; mi < size(lse); ++mi) {
             const int row = get<0>(taccScS_row(mi));
-            lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : INFINITY;
+            lse(mi) = Is_even_MN || row < binfo.actual_seqlen_q - m_block * kBlockM ? gLSE(row) : FLT_MAX;
         }
     }
 
